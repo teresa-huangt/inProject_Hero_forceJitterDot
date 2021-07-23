@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title> force </title>
+	<script src="https://d3js.org/d3.v6.min.js"></script>
+
+	<!-- load d3.forceSimulation -->
+	<!-- step1 -->
+
+	<!-- <script type="module">
+	import {forceSimulation} from "https://cdn.skypack.dev/d3-force@3";
+	// const simulation = forceSimulation(nodes);
+	</script> -->
+
+
+	<!-- step2 -->
+
+	<script src="https://cdn.jsdelivr.net/npm/d3-dispatch@3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/d3-quadtree@3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/d3-timer@3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/d3-force@3"></script>
+	<!-- <script>
+	// const simulation = d3.forceSimulation(nodes);
+	</script> -->
+
+
+	<!-- CSS -->
+	<style type="text/css">
+		body
+		{ 
+			background-color: #fff9de;
+		}
+
+		div.tooltip {
+			position: absolute; text-align: center;
+			width: 70px;
+			height: 160px;
+			padding: 2px;
+			font: 12px sans-serif; background: lightsteelblue; border: 0px; border-radius: 8px; pointer-events: none;
+		}
+	</style>
+</head>
+
+<body>
+		<!-- <h1 id="title">HEROES</h1> -->
+		<!-- <div class="tooltip"; style="opacity:0"></div> -->
+
+		<svg id="placeholder1" ; style="width:3000px; height:3000px; border: 1px"></svg>
+
+	
+
+
+	<script type="text/javascript">
+		// const colors, reusable from light to dark
+		const green0 = "#c8f7c5"
+		const green1 = "#29f1c3"
+		const green2 = "#00e640"
+		const blue0 = "#a2ded0"
+		const blue1 = "#86e2d5"
+		const blue2 = "#4ecdc4"
+		const purple0 = "#947cb0"
+		const purple1 = "#a96dad"
+		const purple2 = "#8c14fc"
+		const gray1 = "#ececec"
+		const gray0 = "#ecf0f1"
+		const gray2 = "#6c7a89"
+
+
+		// init usual size
+		const windowW = 1000
+		const windowH = 1000
+		const margin = { top: 30, bottom: 50, left: 20, right: 20 }
+		const width = windowW - margin.left - margin.right
+		const height = windowH - margin.top - margin.bottom
+
+		const colors = d3.scaleOrdinal(d3.schemeCategory10)
+
+	    let stack = [];
+	    let stackA = new Map();
+	    let stackB = [];
+
+		// data
+		// let data = {
+		// 	nodes: [
+		// 		{ name: "Adam", gender: 0, age: 1 },
+		// 		{ name: "Bob", gender: 0, age: 2 },
+		// 		{ name: "Carrie", gender: 0, age: 3 },
+		// 		{ name: "Donovan", gender: 0, age: 4 },
+		// 		{ name: "Edward", gender: 1, age: 5 },
+		// 		{ name: "Felicity", gender: 1, age: 5 },
+		// 		{ name: "George", gender: 1, age: 5 },
+		// 		{ name: "Hannah", gender: 0, age: 4 },
+		// 		{ name: "Iris", gender: 0, age: 8 },
+		// 		{ name: "Jerry", gender: 0, age: 9 }
+		// 	],
+		// }
+
+
+		d3.csv("data/data_identity2_province.csv").then(function (raw) {
+			Overview = raw;
+			console.log(Overview);
+
+			let data = {
+				nodes: Overview
+			}
+
+			var force = d3.forceSimulation(data.nodes)
+				//strength控制每个圆圈碰撞比下面更明显
+				.force("charge", d3.forceManyBody().strength(-10))
+				.force("center", d3.forceCenter().x(width / 2).y(height / 2))
+				// forceCollide空着整个最后时刻circleGroup半径，strength控制前一步状态缩放,0的时候只看到一个圆圈，0-1变化不明显当前值很大
+				.force("collide", d3.forceCollide(20).strength(0.3))//.iteration(2))
+				// strength控制纵向扁平圆形or横向扁平圆，两个值互斥
+				.force("x", d3.forceX(width / 2).strength(0.5))
+				.force("y", d3.forceY(height / 2).strength(0.5))
+
+			// packed circle init data
+			drawCirclePrepare(data.nodes)
+			console.log("----check packed circle data", )
+
+			// tooltip
+			var div = d3.select("body").append("div") .attr("class", "tooltip") .style("opacity", 0);
+
+			// init svg
+			var svg = d3.select("#placeholder1")
+				.append("g")
+				.attr("width", width)
+				.attr("height", height)
+				.attr("transform", "translate(" + width/2 + "," + height/2 + ")")
+
+			// create circles
+			var nodes = svg.selectAll("circle")
+				.data(data.nodes)
+				.enter()
+				.append("circle")
+				.attr("r", 3)
+				.style("fill", "gray")
+				// .on("mouseover", function (e, d, i) {
+				// 	console.log("check edi", [e, d, i])//i undefinded
+				// 	console.log("check d-name-age-gender", [d.name, d.age, d.gender])
+				// })
+				.on("mouseover", function(event,d) {
+					console.log("check ed mouse over", [event,d])
+					       div.transition()
+					         .duration(200)
+					         .style("opacity", .9);
+					       div.html(d.姓名 +"<br>"
+					       			+d.性别+"<br>"
+					       			+d.年龄+"<br>"
+					       			+d.身份+"<br>"
+					       			+d.所在地省或自治区+"<br>"
+					       			+d.职业+"<br>"
+					       			+d.死亡原因+"<br>"
+					       			// +“离世日期”+"<br>"
+					       			+d.死亡时间+"<br>")
+					         .style("left", (event.pageX) + "px")
+					         .style("top", (event.pageY - 28) + "px");
+					})
+				.on("mouseout", function(d) {
+					console.log("check ed mouseout", [event,d])
+				       div.transition()
+				         .duration(500)
+				         .style("opacity", 0);
+				});
+
+
+			// text label
+			var msgBar = svg.append('g').append('text')
+						.attr("x", width / 2)
+						.attr("y", -150)
+						.attr("text-anchor","middle")
+						.text("540 sacrificed heroes who fight against COVID-19 from Jan - June in 2020")
+						// .append('text')
+						// .attr("x", width / 2)
+						// .attr("y", -149)
+						// .attr("text-anchor","middle")
+						// .text("540名抗疫英雄")
+
+
+
+			//Every time the simulation "ticks", this will be called
+
+			var genderX = {
+				男: 100, 女: 700
+			};
+			var indentityX = {
+				党员: 100, 群众: 500,  null: 900
+			};
+			var deathX = {
+				过劳死亡: 50, 交通事故: 200,  疾病死亡:350, 意外身亡:500, 被害致死:650,自然灾害:800,null: 950
+			};
+
+
+			force.on("tick", function () {
+				nodes.attr("cx", function (d) { return d.x; })
+					.attr("cy", function (d) { return d.y; })
+					.attr("r", 5)
+					
+			})
+
+			console.log(nodes)
+
+			force.on("end", ()=>{
+				nodes
+
+				//1-split gender---------------------------------------------------
+					// split according to gender
+					.transition().duration(6000)
+					.ease(d3.easeExp)
+					.attr("cx", function (d) {
+						return genderX[d.性别] + Math.random() * 150;
+					})
+					.style("fill", function (d, i) {
+						if (i === 0) {
+							setTimeout(function () {
+								msgBar.text('Male:499   -----------------------------------   Female:41')
+									.attr("x", width / 2 )
+							}, 3000)		
+						}
+						if (d.性别 == '男') {
+							return green2
+						} else {
+							return purple2
+						}
+					})
+
+					// recover
+					.transition().duration(4000)
+					.ease(d3.easeExp)
+					.attr("cx", function (d, i) {
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('')}, 8000)						
+						}
+					 return d.x; })
+					.style("fill","gray")
+					// .style("stroke", "none")
+
+
+
+				//2-split identity---------------------------------------------------
+					// split according to identity
+					.transition().duration(6000)
+					.ease(d3.easeExp)
+					.attr("cx", function (d, i) {
+						return indentityX[d.身份] + Math.random() * 50;
+					})
+					.style("fill", function (d, i) {
+						 if (i === 0) {
+							setTimeout(function () {
+								msgBar.text('Communist party member:370 -----------------  The Masses：145 -------------------------  NULL: 25')
+								.attr("x", width / 2)
+							}, 13000)	
+						 }
+						if (d.身份 == '党员') {
+							return "red";
+						} else {
+							return "gray"
+						}
+					})	
+
+					// recover
+					.transition().duration(4000)
+					.attr("cx", function (d, i) {
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('')}, 18000)	
+						}
+					 return d.x; })
+					.style("fill","gray")
+
+
+				//3-split job---------------------------------------------------
+					// split according to cause of death 
+					.transition().duration(6000)
+					.ease(d3.easeExp)
+					.attr("cx", function (d, i) {
+						return deathX[d.死亡原因] + Math.random() * 50;
+					})
+					.style("fill", function (d, i) {
+						 if (i === 0) {
+							setTimeout(function () {
+								msgBar.text('overwork:407 ----- traffic accident:57 ----- disaster:51 ----- accident: 11 ----- murder:5 ----- natural disaster:5 ----- NULL: 4')
+								.attr("x", width / 2 )
+							}, 23000)	
+						 }
+						if (d.死亡原因 == '过劳死亡') {
+							return "#00BFFF";
+						}else if(d.死亡原因 == '交通事故'){
+							return "#F0E68C";
+						}else if(d.死亡原因 == '疾病死亡'){
+							return "#7FFFD4";
+						}else if(d.死亡原因 == '意外身亡'){
+							return "#FF8C00";
+						}else if(d.死亡原因 == '被害致死'){
+							return "#FF69B4";
+						}else if(d.死亡原因 == '自然灾害'){
+							return "#808000";
+						}
+						else{
+							return "#D3D3D3";
+						}
+					})
+
+					// packed circles
+					// .attr("cx", function (d,i) {
+					// if (i === 0) {
+					// 		setTimeout(function () {msgBar.text('')}, 23000)							
+					// 	} 
+					// 	// console.log("=====check i", i)
+					// 	// console.log("=====check stack[i].x", stack[i].x)
+					// 	return stack[stackA.get(d.序号)].x
+					// 	// return stack[i].x
+					// })
+					// .attr("cy", function (d,i) { 
+					// 	return stack[stackA.get(d.序号)].y
+					// })
+					// .style("fill", function (d, i) {
+					// 	if (d.死亡原因 == '过劳死亡') {
+					// 		console.log("check====")
+					// 		return "#00BFFF";
+					// 	}
+					// 	else if(d.死亡原因 == '交通事故'){
+					// 		return "#F0E68C";
+					// 	}else if(d.死亡原因 == '疾病死亡'){
+					// 		return "#7FFFD4";
+					// 	}else if(d.死亡原因 == '意外身亡'){
+					// 		return "#FF8C00";
+					// 	}else if(d.死亡原因 == '被害致死'){
+					// 		return "#FF69B4";
+					// 	}else if(d.死亡原因 == '自然灾害'){
+					// 		return "#808000";
+					// 	}
+					// 	else{
+					// 		return "#D3D3D3";
+					// 	}
+					// })
+
+					// recover
+					.transition().duration(4000)
+					.attr("cx", function (d, i) { 
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('')}, 28000)	
+						}
+						return d.x; })
+					.attr("cy", function (d) { return d.y; })
+
+
+				//4-map age---------------------------------------------------
+					// map age to circel
+					.transition().duration(6000)
+					.attr("r", function (d, i) {
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('change size according to age')
+								.attr("x", width / 2)
+						}, 33000)							}
+						return parseInt(d.年龄) / 10
+					})
+					.transition().duration(2000)
+					.attr("cx", function (d, i) { 
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('')}, 38000)							}
+						return d.x; })
+					
+					
+					// diffusion
+					.transition().duration(5000)
+					.attr("cx", function (d, i) {
+						if (i === 0) {
+							setTimeout(function () {msgBar.text('Hover your mouse to check all information about a hero')}, 40000)							}
+					 return d.x + d3.randomUniform(-1,1)() * 500; })
+					.attr("cy", function (d) { return d.y + d3.randomUniform(-1,1)() * 500; })
+
+
+
+
+			})
+
+					
+
+			
+
+
+    // Functions
+    function drawCirclePrepare(incomingData) {
+	    // init data format
+	    // var groupTweets = Array.from(d3.group(incomingData, d=>d.user))
+	    // root = treemap(data)
+	    // console.log("check root",root)
+	    var groupTweets = d3.group(incomingData, d => d.死亡原因)
+	    console.log("check groupTweets", groupTweets)
+
+	    // pack
+	    var packChart = d3.pack().padding(10)
+	    packChart.size([500, 500])
+	    // console.log("check packChart",packChart)
+
+	    var packableTweets = { id: "All Tweets", values: groupTweets }
+	    console.log("check packableTweets", packableTweets)
+
+	    var root = d3.hierarchy(packableTweets, d => {
+	        // Trick of migrating v4 to v6
+	        if (!d.hasOwnProperty("values")) {
+	            d['values'] = d[1];
+	        }
+	        // console.log("check d", d)
+	        return d.values;
+	    })
+	        //.sum(()=>1) //?
+	        .sum(d => d.年龄 ? d.年龄 : undefined)//调整最内部圆圈大小
+
+	    var root_before = d3.hierarchy(packableTweets, d => {
+	        // test = d[1]
+	        // console.log("check d_before", test)
+	        return d.values
+	        // return Array.isArray(d) ? d:undefined
+	    })
+	        .sum(() => 1) //?
+
+	    console.log("check root_before", root_before)
+	    console.log("check root", root)
+	    console.log("check packChart(root)", packChart(root))
+	    console.log("check packChart(root).descendants()", packChart(root).descendants())
+
+	    // scale
+	    var depthScale = d3.scaleOrdinal()
+	        .range([gray0, blue0, green0, purple0])
+	    console.log("check color", depthScale(1))
+
+	    // output data
+
+	    stack = packChart(root).descendants()
+	    console.log("stack")
+
+	    for(let i=0; i<stack.length; i++) {
+	    	let s = stack[i];
+	    	if (s.height == 0) {
+	    		stackA.set(s.data.序号, i);
+	    	}
+	    	else {
+	    		stackB.push(i);
+	    	}
+	    }
+
+	    // // svg2
+	    // var svg2 = d3.select("#placeholder1")
+	    //     .append("g")
+	    //     .attr("transform", "translate(100, 20)")
+
+	    // //svg2
+	    // 	.append('g')
+	    //     .selectAll("circle")
+	    //     .data(()=>{
+	    //     	console.log(packChart(root).descendants())
+	    //     	return packChart(root).descendants()
+	    //     })
+	    //     .enter()
+	    //     .append("circle")
+	    //     .style("fill", d =>{
+	    //     	stack.push(d)
+
+	    //     	return "cyan"
+	    //     })
+	    //     .attr("r", d => d.r)
+	    //     .attr("cx", d => d.x)
+	    //     .attr("cy", d => d.y)
+	    //     .style("stroke", gray2)
+
+
+
+     }
+
+
+})
+
+
+
+
+	</script>
+</body>
+
+</html>
